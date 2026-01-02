@@ -65,8 +65,9 @@ module.exports = async (req, res) => {
     // Toujours utiliser nano-banana-edit (édition d'image)
     const model = 'google/nano-banana-edit';
 
-    // Callback URL Vercel
-    const callbackUrl = `${req.headers.origin || 'https://bananotoon-backend-six.vercel.app'}/api/kie-callback`;
+    // Callback URL Vercel - utilise le host de la requête pour être dynamique
+    const host = req.headers.host || 'bananotoon-backend1-five.vercel.app';
+    const callbackUrl = `https://${host}/api/kie-callback`;
 
     // Appeler KIE.AI
     const kieResponse = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
