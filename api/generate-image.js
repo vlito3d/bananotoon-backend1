@@ -27,8 +27,8 @@ module.exports = async (req, res) => {
 
   const { userId, style, customPrompt, imageUrl } = req.body;
 
-  if (!userId || !style) {
-    return res.status(400).json({ error: 'Missing userId or style' });
+  if (!userId || !style || !imageUrl) {
+    return res.status(400).json({ error: 'Missing userId, style or imageUrl' });
   }
 
   try {
@@ -59,11 +59,11 @@ module.exports = async (req, res) => {
 
     // Construire le prompt
     const stylePrompt = STYLE_PROMPTS[style] || STYLE_PROMPTS.pixar;
-    const basePrompt = customPrompt || 'a portrait of a person';
+    const basePrompt = customPrompt || 'transform this person';
     const fullPrompt = `${basePrompt}, ${stylePrompt}`;
 
-    // Choisir le modèle (edit si image fournie, sinon generate)
-    const model = imageUrl ? 'google/nano-banana-edit' : 'google/nano-banana';
+    // Toujours utiliser nano-banana-edit (édition d'image)
+    const model = 'google/nano-banana-edit';
 
     // Callback URL Vercel
     const callbackUrl = `${req.headers.origin || 'https://bananotoon-backend-six.vercel.app'}/api/kie-callback`;
@@ -78,13 +78,9 @@ module.exports = async (req, res) => {
       body: JSON.stringify({
         model: model,
         callBackUrl: callbackUrl,
-        input: imageUrl ? {
+        input: {
           prompt: fullPrompt,
           image_urls: [imageUrl],
-          output_format: 'png',
-          image_size: '1:1'
-        } : {
-          prompt: fullPrompt,
           output_format: 'png',
           image_size: '1:1'
         }

@@ -32,17 +32,10 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      transformation: {
-        taskId: taskId,
-        status: transformation.status,
-        style: transformation.style,
-        prompt: transformation.prompt,
-        originalImageUrl: transformation.originalImageUrl,
-        transformedImageUrl: transformation.transformedImageUrl || null,
-        errorMessage: transformation.errorMessage || null,
-        createdAt: transformation.createdAt,
-        completedAt: transformation.completedAt || null
-      }
+      taskId: taskId,
+      status: transformation.status || 'pending',
+      imageUrl: transformation.transformedImageUrl || null,
+      message: transformation.errorMessage || null
     });
 
   } catch (error) {
