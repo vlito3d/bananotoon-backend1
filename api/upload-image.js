@@ -1,7 +1,9 @@
 /**
- * Vercel Endpoint - Upload Image to Catbox
- * Upload une image base64 sur Catbox.moe et retourne l'URL publique
- * Catbox.moe = 100% gratuit, pas de clé API, pas de limite
+ * Vercel Endpoint - Upload Image to ImgBB
+ * Upload une image base64 sur ImgBB et retourne l'URL publique
+ * IMPORTANT: Vous devez avoir une clé API ImgBB (gratuit)
+ * Inscrivez-vous sur https://api.imgbb.com/ pour obtenir votre clé
+ * Puis ajoutez IMGBB_API_KEY dans les variables d'environnement Vercel
  * Endpoint: /api/upload-image
  */
 
@@ -16,47 +18,55 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Missing imageBase64' });
   }
 
+  const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
+
+  if (!IMGBB_API_KEY) {
+    return res.status(500).json({
+      success: false,
+      error: 'IMGBB_API_KEY not configured',
+      message: 'Please add IMGBB_API_KEY to Vercel environment variables. Get your free key at https://api.imgbb.com/'
+    });
+  }
+
   try {
-    // Convertir base64 en buffer
+    // Nettoyer le base64
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    const imageBuffer = Buffer.from(base64Data, 'base64');
 
-    // Créer un FormData pour Catbox
-    const FormData = require('form-data');
-    const formData = new FormData();
-    formData.append('reqtype', 'fileupload');
-    formData.append('fileToUpload', imageBuffer, {
-      filename: `image-${Date.now()}.png`,
-      contentType: 'image/png'
-    });
+    // Créer FormData pour ImgBB
+    const formData = new URLSearchParams();
+    formData.append('key', IMGBB_API_KEY);
+    formData.append('image', base64Data);
+    formData.append('expiration', '600'); // 10 minutes
 
-    // Upload to Catbox.moe (gratuit, anonyme, pas de clé API)
-    const uploadResponse = await fetch('https://catbox.moe/user/api.php', {
+    // Upload to ImgBB
+    const uploadResponse = await fetch('https://api.imgbb.com/1/upload', {
       method: 'POST',
-      body: formData,
-      headers: formData.getHeaders()
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: formData.toString()
     });
 
-    const imageUrl = await uploadResponse.text();
+    const uploadResult = await uploadResponse.json();
 
-    // Catbox retourne directement l'URL en texte
-    if (imageUrl && imageUrl.startsWith('https://files.catbox.moe/')) {
+    if (uploadResult.success && uploadResult.data) {
       return res.status(200).json({
         success: true,
-        imageUrl: imageUrl.trim()
+        imageUrl: uploadResult.data.url
       });
     } else {
       return res.status(500).json({
         success: false,
-        error: 'Catbox upload failed',
-        details: imageUrl
+        error: 'ImgBB upload failed',
+        details: uploadResult.error || uploadResult
       });
     }
   } catch (error) {
     console.error('Error uploading image:', error);
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      stack: error.stack
     });
   }
 };

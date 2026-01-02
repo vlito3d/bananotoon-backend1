@@ -8,8 +8,7 @@
     "deploy": "vercel --prod"
   },
   "dependencies": {
-    "firebase-admin": "^12.0.0",
-    "form-data": "^4.0.0"
+    "firebase-admin": "^12.0.0"
   },
   "engines": {
     "node": "24.x"
