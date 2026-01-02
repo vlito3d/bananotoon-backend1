@@ -5,19 +5,19 @@
  */
 const { getFirestore, admin } = require('./_firebase');
 
-// Styles prédéfinis avec leurs prompts
+// Master prompts pour transformer la référence dans le style choisi
 const STYLE_PROMPTS = {
-  pixar: 'in Pixar 3D animation style, colorful, expressive characters, high quality CGI',
-  manga: 'in Japanese manga style, black and white ink art, dynamic action lines, expressive eyes',
-  anime: 'in anime style, vibrant colors, detailed shading, beautiful character design',
-  cartoon: 'in modern cartoon style, bold outlines, flat colors, playful and fun',
-  watercolor: 'in watercolor painting style, soft brushstrokes, dreamy colors, artistic',
-  oilpainting: 'in classical oil painting style, rich textures, museum quality, renaissance art',
-  sketch: 'in pencil sketch style, detailed linework, artistic shading, hand-drawn look',
-  comic: 'in American comic book style, bold colors, dramatic shadows, superhero aesthetic',
-  fantasy: 'in fantasy art style, magical atmosphere, ethereal lighting, epic composition',
-  cyberpunk: 'in cyberpunk style, neon lights, futuristic cityscape, high-tech aesthetic',
-  retro: 'in retro 80s style, vibrant neon colors, synthwave aesthetic, nostalgic vibe'
+  pixar: 'turn this character into Pixar 3D animation style, preserve facial features and identity, smooth CGI rendering, expressive eyes, vibrant colors, Disney-Pixar quality, professional character design, maintain pose and composition',
+  manga: 'transform this character into Japanese manga style, preserve facial features and expression, black and white ink art, dynamic screentone shading, bold linework, expressive manga eyes, detailed hair strands, professional manga artist quality',
+  anime: 'convert this character into anime style, keep facial structure and identity, vibrant cel-shaded colors, detailed anime shading, beautiful character design, sharp linework, expressive anime eyes, studio-quality animation style',
+  cartoon: 'turn this character into modern cartoon style, preserve character likeness, bold clean outlines, flat vibrant colors, simplified features, playful expression, professional cartoon illustration',
+  watercolor: 'transform this portrait into watercolor painting, maintain facial features and expression, soft watercolor brushstrokes, flowing colors, artistic paper texture, dreamy atmospheric painting, traditional art style',
+  oilpainting: 'convert this portrait into classical oil painting, preserve facial structure and likeness, rich oil paint textures, masterful brushwork, renaissance painting technique, museum-quality portrait art, deep colors and lighting',
+  sketch: 'turn this portrait into detailed pencil sketch, keep facial features accurate, professional sketching technique, varied pencil strokes, artistic shading and hatching, hand-drawn illustration quality, graphite on paper look',
+  comic: 'transform this character into American comic book style, preserve character identity, bold ink outlines, vibrant comic colors, dramatic cel shading, superhero comic aesthetic, professional comic art quality',
+  fantasy: 'convert this character into fantasy art style, maintain facial features, magical ethereal atmosphere, epic fantasy painting, dramatic lighting, mystical elements, professional fantasy illustration, rich detailed rendering',
+  cyberpunk: 'turn this character into cyberpunk style, keep character likeness, neon lighting effects, futuristic tech elements, cyberpunk aesthetic, dramatic sci-fi atmosphere, high-tech urban background, professional digital art',
+  retro: 'transform this character into retro 80s style, preserve facial features, vibrant neon colors, synthwave aesthetic, vintage 80s vibe, nostalgic retro art style, bold graphic design, professional retro illustration'
 };
 
 module.exports = async (req, res) => {
@@ -25,18 +25,21 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { userId, style, customPrompt, imageUrl, mode } = req.body;
+  const { userId, style, customPrompt, imageUrl, imageUrls, mode, image_size } = req.body;
 
   if (!userId || !style) {
     return res.status(400).json({ error: 'Missing userId or style' });
   }
 
   // Mode can be 'generate' (text-to-image) or 'edit' (image-to-image)
-  const generationMode = mode || (imageUrl ? 'edit' : 'generate');
+  const generationMode = mode || (imageUrl || imageUrls ? 'edit' : 'generate');
 
-  if (generationMode === 'edit' && !imageUrl) {
-    return res.status(400).json({ error: 'imageUrl required for edit mode' });
+  if (generationMode === 'edit' && !imageUrl && !imageUrls) {
+    return res.status(400).json({ error: 'imageUrl or imageUrls required for edit mode' });
   }
+
+  // Utiliser image_size depuis req.body, défaut 1:1
+  const imageSize = image_size || '1:1';
 
   try {
     const db = getFirestore();
@@ -64,18 +67,19 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Construire le prompt
+    // Construire le master prompt
     const stylePrompt = STYLE_PROMPTS[style] || STYLE_PROMPTS.pixar;
 
     let fullPrompt;
     if (generationMode === 'generate') {
-      // Text-to-image: génération pure
+      // Text-to-image: génération pure depuis description
       const userPrompt = customPrompt || 'a portrait of a person';
-      fullPrompt = `${userPrompt}, ${stylePrompt}`;
+      fullPrompt = `create ${userPrompt}, ${stylePrompt}`;
     } else {
-      // Image-to-image: édition
-      const userDirective = customPrompt ? ` ${customPrompt}` : '';
-      fullPrompt = `transform this person${userDirective}, ${stylePrompt}`;
+      // Image-to-image: transformation de la référence
+      const userDirective = customPrompt ? `, ${customPrompt}` : '';
+      // Le style prompt contient déjà "turn this character into..."
+      fullPrompt = `${stylePrompt}${userDirective}`;
     }
 
     // Choisir le modèle selon le mode
@@ -84,6 +88,20 @@ module.exports = async (req, res) => {
     // Callback URL Vercel - utilise le host de la requête pour être dynamique
     const host = req.headers.host || 'bananotoon-backend1-five.vercel.app';
     const callbackUrl = `https://${host}/api/kie-callback`;
+
+    // Préparer les URLs d'images pour le mode edit
+    const imageUrlsArray = imageUrls || (imageUrl ? [imageUrl] : null);
+
+    // DEBUG LOG
+    console.log('=== BACKEND GENERATE-IMAGE ===');
+    console.log('userId:', userId);
+    console.log('style:', style);
+    console.log('mode:', generationMode);
+    console.log('image_size:', imageSize);
+    console.log('imageUrlsArray:', imageUrlsArray);
+    console.log('customPrompt:', customPrompt);
+    console.log('FINAL PROMPT:', fullPrompt);
+    console.log('==============================');
 
     // Appeler KIE.AI
     const kieResponse = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
@@ -97,13 +115,13 @@ module.exports = async (req, res) => {
         callBackUrl: callbackUrl,
         input: generationMode === 'edit' ? {
           prompt: fullPrompt,
-          image_urls: [imageUrl],
+          image_urls: imageUrlsArray,
           output_format: 'png',
-          image_size: '1:1'
+          image_size: imageSize  // ✅ Utilise le paramètre envoyé par l'app
         } : {
           prompt: fullPrompt,
           output_format: 'png',
-          image_size: '1:1'
+          image_size: imageSize  // ✅ Utilise le paramètre envoyé par l'app
         }
       })
     });
