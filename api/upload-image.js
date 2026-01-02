@@ -1,6 +1,7 @@
 /**
- * Vercel Endpoint - Upload Image to ImgBB
- * Upload une image base64 sur ImgBB et retourne l'URL publique
+ * Vercel Endpoint - Upload Image to Catbox
+ * Upload une image base64 sur Catbox.moe et retourne l'URL publique
+ * Catbox.moe = 100% gratuit, pas de clé API, pas de limite
  * Endpoint: /api/upload-image
  */
 
@@ -16,38 +17,39 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // ImgBB API (gratuit, pas besoin de compte pour clé publique)
-    const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '0b8f8c8d8f8e8f8e8f8e8f8e8f8e8f8e'; // Clé de test
+    // Convertir base64 en buffer
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+    const imageBuffer = Buffer.from(base64Data, 'base64');
 
-    // Upload to ImgBB
-    const formData = new URLSearchParams();
-    formData.append('key', IMGBB_API_KEY);
-    formData.append('image', imageBase64.replace(/^data:image\/\w+;base64,/, ''));
-    formData.append('expiration', '600'); // 10 minutes (suffisant pour KIE.AI)
-
-    const uploadResponse = await fetch('https://api.imgbb.com/1/upload', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formData.toString()
+    // Créer un FormData pour Catbox
+    const FormData = require('form-data');
+    const formData = new FormData();
+    formData.append('reqtype', 'fileupload');
+    formData.append('fileToUpload', imageBuffer, {
+      filename: `image-${Date.now()}.png`,
+      contentType: 'image/png'
     });
 
-    const uploadResult = await uploadResponse.json();
+    // Upload to Catbox.moe (gratuit, anonyme, pas de clé API)
+    const uploadResponse = await fetch('https://catbox.moe/user/api.php', {
+      method: 'POST',
+      body: formData,
+      headers: formData.getHeaders()
+    });
 
-    if (uploadResult.success) {
+    const imageUrl = await uploadResponse.text();
+
+    // Catbox retourne directement l'URL en texte
+    if (imageUrl && imageUrl.startsWith('https://files.catbox.moe/')) {
       return res.status(200).json({
         success: true,
-        imageUrl: uploadResult.data.url,
-        displayUrl: uploadResult.data.display_url,
-        deleteUrl: uploadResult.data.delete_url,
-        expiresIn: 600 // seconds
+        imageUrl: imageUrl.trim()
       });
     } else {
       return res.status(500).json({
         success: false,
-        error: 'ImgBB upload failed',
-        details: uploadResult.error
+        error: 'Catbox upload failed',
+        details: imageUrl
       });
     }
   } catch (error) {
