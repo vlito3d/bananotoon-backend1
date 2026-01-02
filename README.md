@@ -65,3 +65,4 @@ CRON_SECRET=ton_secret_aleatoire
 ## 🎉 C'est tout !
 
 Simple, gratuit, scalable ! 🚀
+# bananotoon-backend
