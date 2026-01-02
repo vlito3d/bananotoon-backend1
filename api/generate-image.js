@@ -43,14 +43,14 @@ module.exports = async (req, res) => {
     const userData = userDoc.data();
 
     // Vérifier les quotas
-    if (userData.subscriptionType === 'free' && userData.weeklyQuota <= 0) {
+    if (userData.subscriptionType === 'FREE' && userData.quotaRemaining <= 0) {
       return res.status(403).json({
         error: 'Quota exceeded',
         message: 'You have reached your weekly limit. Upgrade or watch an ad!'
       });
     }
 
-    if (userData.subscriptionType === 'standard' && userData.weeklyQuota <= 0) {
+    if (userData.subscriptionType === 'STANDARD' && userData.quotaRemaining <= 0) {
       return res.status(403).json({
         error: 'Quota exceeded',
         message: 'You have reached your weekly limit of 50 transformations.'
@@ -104,7 +104,7 @@ module.exports = async (req, res) => {
 
     // Décrémenter le quota
     await userRef.update({
-      weeklyQuota: admin.firestore.FieldValue.increment(-1)
+      quotaRemaining: admin.firestore.FieldValue.increment(-1)
     });
 
     // Sauvegarder la transformation en pending
