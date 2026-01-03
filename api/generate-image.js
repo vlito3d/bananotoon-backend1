@@ -40,7 +40,7 @@ module.exports = async (req, res) => {
 
     const videoImageUrl = imageUrl || (imageUrls && imageUrls[0]);
     const videoDuration = duration || "5";
-    const videoResolution = resolution || "1080p";
+    const videoResolution = resolution || "720p"; // 720p par défaut (moins cher)
     const videoPrompt = customPrompt || 'A cinematic video transformation of this image with smooth camera movement';
 
     try {
@@ -73,7 +73,7 @@ module.exports = async (req, res) => {
       console.log('userId:', userId);
       console.log('imageUrl:', videoImageUrl);
       console.log('prompt:', videoPrompt);
-      console.log('duration:', videoDuration);
+      console.log('duration:', videoDuration, '(parsed:', parseInt(videoDuration), ')');
       console.log('resolution:', videoResolution);
       console.log('isPro:', isPro);
       console.log('model:', videoModel);
@@ -83,6 +83,7 @@ module.exports = async (req, res) => {
       const videoInput = {
         image_url: videoImageUrl,
         prompt: videoPrompt,
+        duration: parseInt(videoDuration),
         resolution: videoResolution,
         aspect_ratio: "9:16", // Always 9:16
         enable_prompt_expansion: false,
