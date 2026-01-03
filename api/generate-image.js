@@ -66,15 +66,31 @@ module.exports = async (req, res) => {
       const host = req.headers.host || 'bananotoon-backend1-five.vercel.app';
       const callbackUrl = `https://${host}/api/kie-callback`;
 
+      // Choose model based on isPro flag
+      const videoModel = isPro ? "wan/2-6-image-to-video" : "wan/2-5-image-to-video";
+
       console.log('=== VIDEO GENERATION ===');
       console.log('userId:', userId);
       console.log('imageUrl:', videoImageUrl);
       console.log('prompt:', videoPrompt);
       console.log('duration:', videoDuration);
       console.log('resolution:', videoResolution);
-      console.log('model: wan/2-6-image-to-video');
+      console.log('isPro:', isPro);
+      console.log('model:', videoModel);
 
-      // Appeler KIE.AI wan/2-6-image-to-video
+      // Appeler KIE.AI wan/2-5 (normal) ou wan/2-6 (pro)
+      const videoInput = {
+        prompt: videoPrompt,
+        image_url: videoImageUrl, // wan/2-5 uses image_url instead of image_urls
+        duration: videoDuration,
+        resolution: videoResolution
+      };
+
+      // wan/2-5 supports prompt expansion
+      if (!isPro) {
+        videoInput.enable_prompt_expansion = true;
+      }
+
       const kieResponse = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
         method: 'POST',
         headers: {
@@ -82,15 +98,9 @@ module.exports = async (req, res) => {
           'Authorization': `Bearer ${process.env.KIE_API_KEY}`
         },
         body: JSON.stringify({
-          model: "wan/2-6-image-to-video",
+          model: videoModel,
           callBackUrl: callbackUrl,
-          input: {
-            prompt: videoPrompt,
-            image_urls: [videoImageUrl],
-            duration: videoDuration,
-            resolution: videoResolution,
-            multi_shots: false
-          }
+          input: videoInput
         })
       });
 
